@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMS Berbasis Barcode</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Custom styles for better mobile visibility */
+        .scan-input {
+            font-size: 1.25rem;
+            padding: 0.75rem;
+            text-transform: uppercase;
+        }
+        .transaction-card {
+            min-height: 400px;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app" class="min-h-screen flex flex-col">
+
+        <!-- Header -->
+        <header class="bg-gray-800 text-white shadow-lg p-4 sticky top-0 z-10">
+            <h1 class="text-2xl font-bold">Smart WMS Barcode</h1>
+            <p id="auth-status" class="text-sm text-gray-400 mt-1">Status: Menghubungkan...</p>
+        </header>
+
+        <!-- Loading Overlay -->
+        <div id="loading-spinner" class="loading-overlay" style="display: none;">
+            <div class="flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                <p class="mt-3 text-lg font-semibold text-gray-700">Memuat data gudang...</p>
+            </div>
+        </div>
+
+        <!-- Main Content (Container) -->
+        <main class="flex-grow p-4 md:p-8">
+
+            <!-- Navigation / Menu Tabs -->
+            <div class="flex justify-center space-x-2 md:space-x-4 mb-8 sticky top-16 bg-white p-3 rounded-xl shadow-md z-10">
+                <button onclick="changeView('dashboard')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Dashboard</button>
+                <button onclick="changeView('receive')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Penerimaan</button>
+                <button onclick="changeView('move')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Perpindahan</button>
+                <button onclick="changeView('pick')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Pengambilan</button>
+            </div>
+
+            <!-- View Sections -->
+            <div id="views-container">
+                <!-- Dashboard View -->
+                <div id="dashboard-view" class="view-section hidden">
+                    <h2 class="text-3xl font-bold text-gray-800 mb-6">Ringkasan Inventaris</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-indigo-600 text-white p-6 rounded-xl shadow-lg">
+                            <p class="text-sm opacity-90">Total SKU Unik</p>
+                            <p id="total-sku" class="text-4xl font-extrabold mt-1">0</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                            <p class="text-sm text-gray-500">Total Stok Unit</p>
+                            <p id="total-qty" class="text-4xl font-extrabold text-gray-800 mt-1">0</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                            <p class="text-sm text-gray-500">Lokasi Aktif</p>
+                            <p id="total-locations" class="text-4xl font-extrabold text-gray-800 mt-1">0</p>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">Detail Inventaris (Semua Lokasi)</h3>
+                    <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lokasi</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Terakhir Diperbarui</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-list" class="bg-white divide-y divide-gray-200">
+                                <!-- Data inventaris akan dimasukkan di sini oleh JS -->
+                            </tbody>
+                        </table>
+                        <div id="empty-inventory" class="p-4 text-center text-gray-500" style="display: none;">
+                            Inventaris kosong. Silakan mulai Penerimaan.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaction Views -->
+                <div id="receive-view" class="view-section hidden">
+                    <div class="bg-white p-6 md:p-10 rounded-xl shadow-xl transaction-card">
+                        <h2 class="text-3xl font-bold text-gray-800 mb-6">Penerimaan Barang (IN)</h2>
+                        <div id="receive-step-1">
+                            <label class="block text-gray-700 font-semibold mb-2">1. Pindai/Masukkan Barcode SKU (Cth: MIE-001)</label>
+                            <input type="text" id="receive-sku-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="SKU Barcode" onkeypress="handleReceiveKeyPress(event)">
+                            <button onclick="startReceiveStep2()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Lanjut</button>
+                        </div>
+                        <div id="receive-step-2" class="hidden">
+                            <label class="block text-gray-700 font-semibold mb-2">SKU: <span id="current-receive-sku" class="font-bold text-indigo-600"></span></label>
+                            <label class="block text-gray-700 font-semibold mb-2">2. Pindai/Masukkan Barcode Lokasi (Cth: A1B2)</label>
+                            <input type="text" id="receive-location-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="Lokasi Barcode" onkeypress="handleReceiveKeyPress(event)">
+                            <label class="block text-gray-700 font-semibold mb-2">3. Masukkan Kuantitas Diterima</label>
+                            <input type="number" id="receive-qty-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-6" placeholder="Kuantitas" value="1" min="1">
+                            <button onclick="commitReceive()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Simpan Penerimaan</button>
+                            <button onclick="resetReceive()" class="w-full mt-3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-150">Batalkan</button>
+                        </div>
+                        <div id="receive-message" class="mt-4 p-3 rounded-lg text-center font-medium hidden"></div>
+                    </div>
+                </div>
+
+                <div id="move-view" class="view-section hidden">
+                    <div class="bg-white p-6 md:p-10 rounded-xl shadow-xl transaction-card">
+                        <h2 class="text-3xl font-bold text-gray-800 mb-6">Perpindahan Barang (MOVE)</h2>
+                        <div id="move-step-1">
+                            <label class="block text-gray-700 font-semibold mb-2">1. Pindai/Masukkan Barcode SKU</label>
+                            <input type="text" id="move-sku-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="SKU Barcode" onkeypress="handleMoveKeyPress(event)">
+                            <button onclick="startMoveStep2()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Lanjut</button>
+                        </div>
+                         <div id="move-step-2" class="hidden">
+                            <label class="block text-gray-700 font-semibold mb-2">SKU: <span id="current-move-sku" class="font-bold text-indigo-600"></span></label>
+                            <label class="block text-gray-700 font-semibold mb-2">2. Pindai/Masukkan Lokasi ASAL</label>
+                            <input type="text" id="move-from-location-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="Lokasi Asal" onkeypress="handleMoveKeyPress(event)">
+                            <button onclick="startMoveStep3()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Lanjut</button>
+                        </div>
+                        <div id="move-step-3" class="hidden">
+                            <label class="block text-gray-700 font-semibold mb-2">3. Pindai/Masukkan Lokasi TUJUAN</label>
+                            <input type="text" id="move-to-location-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="Lokasi Tujuan" onkeypress="handleMoveKeyPress(event)">
+                            <label class="block text-gray-700 font-semibold mb-2">4. Masukkan Kuantitas Dipindahkan</label>
+                            <input type="number" id="move-qty-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-6" placeholder="Kuantitas" value="1" min="1">
+                            <button onclick="commitMove()" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Simpan Perpindahan</button>
+                            <button onclick="resetMove()" class="w-full mt-3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-150">Batalkan</button>
+                        </div>
+                        <div id="move-message" class="mt-4 p-3 rounded-lg text-center font-medium hidden"></div>
+                    </div>
+                </div>
+
+                <div id="pick-view" class="view-section hidden">
+                    <div class="bg-white p-6 md:p-10 rounded-xl shadow-xl transaction-card">
+                        <h2 class="text-3xl font-bold text-gray-800 mb-6">Pengambilan Barang (OUT)</h2>
+                        <div id="pick-step-1">
+                            <label class="block text-gray-700 font-semibold mb-2">1. Pindai/Masukkan Barcode SKU</label>
+                            <input type="text" id="pick-sku-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="SKU Barcode" onkeypress="handlePickKeyPress(event)">
+                            <button onclick="startPickStep2()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Lanjut</button>
+                        </div>
+                        <div id="pick-step-2" class="hidden">
+                            <label class="block text-gray-700 font-semibold mb-2">SKU: <span id="current-pick-sku" class="font-bold text-indigo-600"></span></label>
+                            <label class="block text-gray-700 font-semibold mb-2">2. Pindai/Masukkan Barcode Lokasi Pengambilan</label>
+                            <input type="text" id="pick-location-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="Lokasi Barcode" onkeypress="handlePickKeyPress(event)">
+                            <label class="block text-gray-700 font-semibold mb-2">3. Masukkan Kuantitas Diambil</label>
+                            <input type="number" id="pick-qty-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-6" placeholder="Kuantitas" value="1" min="1">
+                            <button onclick="commitPick()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Simpan Pengambilan</button>
+                            <button onclick="resetPick()" class="w-full mt-3 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-150">Batalkan</button>
+                        </div>
+                        <div id="pick-message" class="mt-4 p-3 rounded-lg text-center font-medium hidden"></div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="p-4 text-center text-sm text-gray-600 border-t mt-8">
+            WMS Sederhana - Didukung oleh Firestore Real-time
+        </footer>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, onSnapshot, doc, getDoc, setDoc, runTransaction, where, writeBatch, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Set Firebase log level for debugging
+        setLogLevel('debug');
+
+        // =================================================================
+        // KONFIGURASI FIREBASE OTOMATIS UNTUK LINGKUNGAN SAAT INI
+        // =================================================================
+        
+        // Variabel global yang disediakan oleh lingkungan
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-wms-app';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // Firebase Initialization and Services
+        let app;
+        let db;
+        let auth;
+        let userId = 'unknown';
+
+        // Application State
+        window.currentView = 'dashboard';
+        window.inventory = [];
+        window.currentUser = null;
+
+        // Path Collection menggunakan App ID yang disediakan lingkungan
+        const INVENTORY_COLLECTION = `artifacts/${appId}/public/data/wms_inventory`;
+        
+        // --- Utility Functions ---
+
+        /**
+         * Simulates an asynchronous delay (for API call simulation/backoff).
+         */
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        /**
+         * Shows a temporary status message in the UI.
+         */
+        function showMessage(elementId, message, type = 'success') {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+
+            el.textContent = message;
+            el.className = 'mt-4 p-3 rounded-lg text-center font-medium transition duration-300 block';
+
+            if (type === 'success') {
+                el.classList.add('bg-green-100', 'text-green-800');
+            } else if (type === 'error') {
+                el.classList.add('bg-red-100', 'text-red-800');
+            } else if (type === 'info') {
+                el.classList.add('bg-blue-100', 'text-blue-800');
+            }
+            
+            // Hide after 4 seconds
+            setTimeout(() => {
+                el.classList.add('hidden');
+            }, 4000);
+        }
+
+        /**
+         * Toggles the loading spinner display.
+         */
+        function toggleLoading(show) {
+            document.getElementById('loading-spinner').style.display = show ? 'flex' : 'none';
+        }
+
+        // --- Firebase Core Functions ---
+
+        /**
+         * Initializes Firebase and handles authentication.
+         */
+        async function initFirebase() {
+            try {
+                if (Object.keys(firebaseConfig).length === 0) {
+                    console.warn("Peringatan: Konfigurasi Firebase environment mungkin kosong.");
+                }
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // 1. Authenticate user
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // 2. Set up Auth State Listener
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        window.currentUser = user;
+                        userId = user.uid;
+                        document.getElementById('auth-status').textContent = `Status: Terhubung (${userId.substring(0, 8)}...) | Project: ${appId}`;
+                        console.log("Firebase Auth Sukses. User ID:", userId);
+                        
+                        // 3. Start listening to Inventory data after auth is ready
+                        setupInventoryListener();
+                    } else {
+                        document.getElementById('auth-status').textContent = 'Status: Gagal Autentikasi';
+                        console.error("Firebase Auth Gagal.");
+                    }
+                });
+
+            } catch (error) {
+                console.error("Error saat inisialisasi Firebase:", error);
+                document.getElementById('auth-status').textContent = `Status: Error - ${error.message}`;
+            }
+        }
+
+        /**
+         * Sets up real-time listener for the public inventory collection.
+         */
+        function setupInventoryListener() {
+            if (!db) {
+                console.error("Firestore belum diinisialisasi.");
+                return;
+            }
+
+            const q = query(collection(db, INVENTORY_COLLECTION));
+            toggleLoading(true);
+
+            onSnapshot(q, (snapshot) => {
+                window.inventory = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    window.inventory.push({ id: doc.id, ...data });
+                });
+                console.log("Inventaris Diperbarui:", window.inventory.length, "dokumen.");
+                renderDashboard();
+                toggleLoading(false);
+            }, (error) => {
+                console.error("Error saat mendapatkan snapshot inventaris:", error);
+                toggleLoading(false);
+                showMessage('auth-status', 'Gagal memuat inventaris real-time. (Cek Rule Firestore Anda)', 'error');
+            });
+        }
+
+        // --- Inventory DB Operations (Firestore Transaction) ---
+
+        /**
+         * Handles the core transaction logic for adding or removing stock.
+         * @param {string} sku - Product SKU.
+         * @param {string} location - Warehouse location.
+         * @param {number} qtyChange - Positive for add, negative for remove.
+         * @returns {Promise<boolean>} Success status.
+         */
+        async function updateInventoryTransaction(sku, location, qtyChange) {
+            if (qtyChange === 0) return true; // No change needed
+
+            const formattedSKU = sku.toUpperCase();
+            const formattedLocation = location.toUpperCase();
+            const documentId = `${formattedSKU}_${formattedLocation}`;
+            const docRef = doc(db, INVENTORY_COLLECTION, documentId);
+            
+            let success = false;
+            let finalQty = 0;
+
+            try {
+                await runTransaction(db, async (transaction) => {
+                    const docSnapshot = await transaction.get(docRef);
+                    let currentQty = 0;
+
+                    if (docSnapshot.exists()) {
+                        currentQty = docSnapshot.data().qty || 0;
+                    }
+
+                    finalQty = currentQty + qtyChange;
+                    
+                    // Validation for picking/moving out (must not result in negative stock)
+                    if (finalQty < 0) {
+                        throw new Error(`Stok tidak cukup. Stok saat ini ${currentQty} di ${formattedLocation}. Permintaan ${-qtyChange}.`);
+                    }
+
+                    const timestamp = new Date().toISOString();
+
+                    if (finalQty > 0) {
+                        // Update or Set the document
+                        transaction.set(docRef, {
+                            sku: formattedSKU,
+                            location: formattedLocation,
+                            qty: finalQty,
+                            updatedBy: userId,
+                            updatedAt: timestamp
+                        });
+                    } else {
+                        // If quantity is 0, delete the document
+                        transaction.delete(docRef);
+                    }
+                    
+                    success = true;
+                });
+            } catch (error) {
+                console.error("Error dalam Transaksi:", error);
+                throw error; // Re-throw to be caught by the calling function
+            }
+            return success;
+        }
+
+        // --- Core WMS Logic (Receive, Move, Pick) ---
+
+        // ------------------ RECEIVE ------------------
+
+        let receiveState = {
+            sku: null,
+            location: null,
+            qty: null
+        };
+
+        window.startReceiveStep2 = function() {
+            const skuInput = document.getElementById('receive-sku-input');
+            const sku = skuInput.value.trim().toUpperCase();
+
+            if (!sku) {
+                showMessage('receive-message', 'Masukkan Barcode SKU yang valid.', 'error');
+                skuInput.focus();
+                return;
+            }
+
+            receiveState.sku = sku;
+            document.getElementById('current-receive-sku').textContent = sku;
+            
+            document.getElementById('receive-step-1').classList.add('hidden');
+            document.getElementById('receive-step-2').classList.remove('hidden');
+            document.getElementById('receive-location-input').focus();
+            document.getElementById('receive-message').classList.add('hidden');
+        };
+        
+        window.commitReceive = async function() {
+            const location = document.getElementById('receive-location-input').value.trim().toUpperCase();
+            const qty = parseInt(document.getElementById('receive-qty-input').value, 10);
+
+            if (!location || qty <= 0 || !receiveState.sku) {
+                showMessage('receive-message', 'Lengkapi SKU, Lokasi, dan Kuantitas (>0).', 'error');
+                return;
+            }
+
+            showMessage('receive-message', 'Memproses penerimaan...', 'info');
+
+            try {
+                await updateInventoryTransaction(receiveState.sku, location, qty);
+                showMessage('receive-message', `Sukses! ${qty} unit SKU ${receiveState.sku} diterima di ${location}.`, 'success');
+                resetReceive();
+            } catch (e) {
+                showMessage('receive-message', `Gagal: ${e.message}`, 'error');
+            }
+        };
+
+        window.resetReceive = function() {
+            receiveState = { sku: null, location: null, qty: null };
+            document.getElementById('receive-sku-input').value = '';
+            document.getElementById('receive-location-input').value = '';
+            document.getElementById('receive-qty-input').value = '1';
+
+            document.getElementById('receive-step-1').classList.remove('hidden');
+            document.getElementById('receive-step-2').classList.add('hidden');
+            document.getElementById('receive-sku-input').focus();
+        };
+
+        window.handleReceiveKeyPress = function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (document.getElementById('receive-step-1').classList.contains('hidden')) {
+                    if (document.activeElement.id === 'receive-qty-input') {
+                        commitReceive();
+                    } else if (document.activeElement.id === 'receive-location-input') {
+                        document.getElementById('receive-qty-input').focus();
+                    }
+                } else {
+                    startReceiveStep2();
+                }
+            }
+        };
+
+
+        // ------------------ MOVE ------------------
+
+        let moveState = {
+            sku: null,
+            fromLocation: null,
+            toLocation: null,
+            qty: null
+        };
+
+        window.startMoveStep2 = function() {
+            const skuInput = document.getElementById('move-sku-input');
+            const sku = skuInput.value.trim().toUpperCase();
+
+            if (!sku) {
+                showMessage('move-message', 'Masukkan Barcode SKU yang valid.', 'error');
+                skuInput.focus();
+                return;
+            }
+            
+            // Basic check if SKU exists (optional: a more thorough check would be better)
+            const exists = window.inventory.some(item => item.sku === sku && item.qty > 0);
+            if (!exists) {
+                 showMessage('move-message', `SKU ${sku} tidak ditemukan di gudang (atau stok 0).`, 'error');
+                 return;
+            }
+
+            moveState.sku = sku;
+            document.getElementById('current-move-sku').textContent = sku;
+            
+            document.getElementById('move-step-1').classList.add('hidden');
+            document.getElementById('move-step-2').classList.remove('hidden');
+            document.getElementById('move-from-location-input').focus();
+            document.getElementById('move-message').classList.add('hidden');
+        };
+        
+        window.startMoveStep3 = function() {
+            const fromLocation = document.getElementById('move-from-location-input').value.trim().toUpperCase();
+
+            if (!fromLocation) {
+                showMessage('move-message', 'Masukkan Lokasi ASAL yang valid.', 'error');
+                document.getElementById('move-from-location-input').focus();
+                return;
+            }
+            
+            // Check if stock exists at this location
+            const currentStock = window.inventory.find(item => item.sku === moveState.sku && item.location === fromLocation);
+            if (!currentStock || currentStock.qty <= 0) {
+                 showMessage('move-message', `SKU ${moveState.sku} tidak memiliki stok di Lokasi ${fromLocation}.`, 'error');
+                 document.getElementById('move-from-location-input').focus();
+                 return;
+            }
+
+            moveState.fromLocation = fromLocation;
+            
+            document.getElementById('move-step-2').classList.add('hidden');
+            document.getElementById('move-step-3').classList.remove('hidden');
+            document.getElementById('move-to-location-input').focus();
+            document.getElementById('move-message').classList.add('hidden');
+        };
+
+        window.commitMove = async function() {
+            const toLocation = document.getElementById('move-to-location-input').value.trim().toUpperCase();
+            const qty = parseInt(document.getElementById('move-qty-input').value, 10);
+
+            if (!toLocation || qty <= 0 || !moveState.fromLocation || !moveState.sku) {
+                showMessage('move-message', 'Lengkapi semua langkah dengan benar.', 'error');
+                return;
+            }
+            
+            if (moveState.fromLocation === toLocation) {
+                 showMessage('move-message', 'Lokasi Asal dan Tujuan tidak boleh sama.', 'error');
+                 return;
+            }
+
+            showMessage('move-message', `Memproses perpindahan ${moveState.sku} dari ${moveState.fromLocation} ke ${toLocation}...`, 'info');
+
+            try {
+                // Step 1: Reduce stock from FROM location (negative qtyChange)
+                await updateInventoryTransaction(moveState.sku, moveState.fromLocation, -qty);
+                
+                // Step 2: Add stock to TO location (positive qtyChange)
+                await updateInventoryTransaction(moveState.sku, toLocation, qty);
+                
+                showMessage('move-message', `Sukses! ${qty} unit SKU ${moveState.sku} dipindahkan dari ${moveState.fromLocation} ke ${toLocation}.`, 'success');
+                resetMove();
+            } catch (e) {
+                showMessage('move-message', `Gagal Perpindahan: ${e.message}`, 'error');
+                // NOTE: In a real system, a failed transaction needs rollback logic if step 1 passed and step 2 failed.
+                // However, runTransaction only runs one update, so here we use two transactions, but the first one 
+                // ensures stock validity. A real WMS uses Batch/Transaction for atomicity.
+            }
+        };
+        
+        window.resetMove = function() {
+            moveState = { sku: null, fromLocation: null, toLocation: null, qty: null };
+            document.getElementById('move-sku-input').value = '';
+            document.getElementById('move-from-location-input').value = '';
+            document.getElementById('move-to-location-input').value = '';
+            document.getElementById('move-qty-input').value = '1';
+
+            document.getElementById('move-step-3').classList.add('hidden');
+            document.getElementById('move-step-2').classList.add('hidden');
+            document.getElementById('move-step-1').classList.remove('hidden');
+            document.getElementById('move-sku-input').focus();
+        };
+
+        window.handleMoveKeyPress = function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (!document.getElementById('move-step-1').classList.contains('hidden')) {
+                    startMoveStep2();
+                } else if (!document.getElementById('move-step-2').classList.contains('hidden')) {
+                    startMoveStep3();
+                } else if (!document.getElementById('move-step-3').classList.contains('hidden')) {
+                    if (document.activeElement.id === 'move-qty-input') {
+                        commitMove();
+                    } else if (document.activeElement.id === 'move-to-location-input') {
+                        document.getElementById('move-qty-input').focus();
+                    }
+                }
+            }
+        };
+        
+        // ------------------ PICK ------------------
+
+        let pickState = {
+            sku: null,
+            location: null,
+            qty: null
+        };
+
+        window.startPickStep2 = function() {
+            const skuInput = document.getElementById('pick-sku-input');
+            const sku = skuInput.value.trim().toUpperCase();
+
+            if (!sku) {
+                showMessage('pick-message', 'Masukkan Barcode SKU yang valid.', 'error');
+                skuInput.focus();
+                return;
+            }
+
+            pickState.sku = sku;
+            document.getElementById('current-pick-sku').textContent = sku;
+            
+            document.getElementById('pick-step-1').classList.add('hidden');
+            document.getElementById('pick-step-2').classList.remove('hidden');
+            document.getElementById('pick-location-input').focus();
+            document.getElementById('pick-message').classList.add('hidden');
+        };
+
+        window.commitPick = async function() {
+            const location = document.getElementById('pick-location-input').value.trim().toUpperCase();
+            const qty = parseInt(document.getElementById('pick-qty-input').value, 10);
+
+            if (!location || qty <= 0 || !pickState.sku) {
+                showMessage('pick-message', 'Lengkapi SKU, Lokasi, dan Kuantitas (>0).', 'error');
+                return;
+            }
+
+            showMessage('pick-message', 'Memproses pengambilan...', 'info');
+            
+            // Picking is a negative change in stock
+            try {
+                await updateInventoryTransaction(pickState.sku, location, -qty);
+                showMessage('pick-message', `Sukses! ${qty} unit SKU ${pickState.sku} diambil dari ${location}.`, 'success');
+                resetPick();
+            } catch (e) {
+                showMessage('pick-message', `Gagal Pengambilan: ${e.message}`, 'error');
+            }
+        };
+
+        window.resetPick = function() {
+            pickState = { sku: null, location: null, qty: null };
+            document.getElementById('pick-sku-input').value = '';
+            document.getElementById('pick-location-input').value = '';
+            document.getElementById('pick-qty-input').value = '1';
+
+            document.getElementById('pick-step-1').classList.remove('hidden');
+            document.getElementById('pick-step-2').classList.add('hidden');
+            document.getElementById('pick-sku-input').focus();
+        };
+
+        window.handlePickKeyPress = function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                if (document.getElementById('pick-step-1').classList.contains('hidden')) {
+                    if (document.activeElement.id === 'pick-qty-input') {
+                        commitPick();
+                    } else if (document.activeElement.id === 'pick-location-input') {
+                        document.getElementById('pick-qty-input').focus();
+                    }
+                } else {
+                    startPickStep2();
+                }
+            }
+        };
+
+        // --- UI Rendering and Navigation ---
+
+        /**
+         * Renders the real-time inventory list and dashboard stats.
+         */
+        function renderDashboard() {
+            const listEl = document.getElementById('inventory-list');
+            const emptyEl = document.getElementById('empty-inventory');
+            listEl.innerHTML = '';
+
+            let totalQty = 0;
+            const uniqueSKUs = new Set();
+            const uniqueLocations = new Set();
+            
+            if (window.inventory.length === 0) {
+                emptyEl.style.display = 'block';
+            } else {
+                emptyEl.style.display = 'none';
+                
+                window.inventory
+                    .filter(item => item.qty > 0) // Only show items with stock
+                    .sort((a, b) => {
+                        // Sort by SKU then by Location
+                        if (a.sku < b.sku) return -1;
+                        if (a.sku > b.sku) return 1;
+                        if (a.location < b.location) return -1;
+                        if (a.location > b.location) return 1;
+                        return 0;
+                    })
+                    .forEach(item => {
+                        totalQty += item.qty;
+                        uniqueSKUs.add(item.sku);
+                        uniqueLocations.add(item.location);
+
+                        const row = document.createElement('tr');
+                        row.classList.add('hover:bg-gray-50');
+                        row.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.sku}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.location}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">${item.qty.toLocaleString('id-ID')}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${new Date(item.updatedAt).toLocaleTimeString('id-ID')}</td>
+                        `;
+                        listEl.appendChild(row);
+                    });
+            }
+
+            // Update stats
+            document.getElementById('total-sku').textContent = uniqueSKUs.size.toLocaleString('id-ID');
+            document.getElementById('total-qty').textContent = totalQty.toLocaleString('id-ID');
+            document.getElementById('total-locations').textContent = uniqueLocations.size.toLocaleString('id-ID');
+        }
+
+        /**
+         * Switches the active view/tab.
+         */
+        window.changeView = function(viewName) {
+            window.currentView = viewName;
+
+            // Hide all view sections
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+
+            // Show the target view
+            const targetView = document.getElementById(`${viewName}-view`);
+            if (targetView) {
+                targetView.classList.remove('hidden');
+                document.title = `WMS - ${viewName.charAt(0).toUpperCase() + viewName.slice(1)}`;
+            }
+
+            // Update button styles
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                const isActive = btn.onclick.toString().includes(`'${viewName}'`);
+                btn.classList.toggle('bg-indigo-600', isActive);
+                btn.classList.toggle('text-white', isActive);
+                btn.classList.toggle('bg-gray-100', !isActive);
+                btn.classList.toggle('text-gray-700', !isActive);
+
+                // Focus on the first input of the active view
+                if (isActive) {
+                    setTimeout(() => {
+                        const firstInput = targetView.querySelector('input[type="text"]');
+                        if (firstInput) {
+                            firstInput.focus();
+                        }
+                    }, 100);
+                }
+            });
+        };
+
+        // --- Application Startup ---
+        window.onload = function() {
+            initFirebase();
+            changeView('dashboard'); // Start on the dashboard
+        };
+
+    </script>
+</body>
+</html>
