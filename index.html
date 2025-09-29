@@ -196,21 +196,27 @@
         setLogLevel('debug');
 
         // =================================================================
-        // KONFIGURASI FIREBASE OTOMATIS DENGAN PROJECT ID USER
+        // KONFIGURASI FIREBASE OTOMATIS DENGAN CONFIG LINGKUNGAN
         // =================================================================
         
         // Variabel global yang disediakan oleh lingkungan
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-wms-app';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // FIX: Hardcode Project ID yang disediakan user untuk memastikan inisialisasi berhasil.
-        // Kami menggunakan placeholder untuk API key, berharap lingkungan Canvas akan menggantinya.
-        const firebaseConfig = {
-            apiKey: "AIzaSyPlaceholderKey", // Placeholder, Diharapkan diganti oleh Canvas runtime
-            authDomain: "wms01-b45c5.firebaseapp.com",
-            projectId: "wms01-b45c5", // Project ID yang Anda berikan
-            storageBucket: "wms01-b45c5.appspot.com",
-        };
+        // FIX: Gunakan konfigurasi lingkungan yang sudah di-parse
+        // Jika konfigurasi kosong (seperti di beberapa kasus), gunakan konfigurasi default
+        let firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        
+        // Pengecekan keamanan: Jika config kosong atau tidak ada projectId, gunakan default dengan projectId user.
+        if (Object.keys(firebaseConfig).length === 0 || !firebaseConfig.projectId) {
+            console.warn("Konfigurasi Firebase dari environment kosong atau tidak lengkap. Menggunakan Project ID Default.");
+            firebaseConfig = {
+                apiKey: "", // Diharapkan disuntikkan oleh runtime
+                authDomain: "wms01-b45c5.firebaseapp.com",
+                projectId: "wms01-b45c5", // Project ID yang Anda berikan
+                storageBucket: "wms01-b45c5.appspot.com",
+            };
+        }
         
         // Firebase Initialization and Services
         let app;
@@ -272,7 +278,7 @@
         async function initFirebase() {
             try {
                 
-                // Menggunakan firebaseConfig yang sudah diperbarui di atas (hardcode project ID)
+                // Menggunakan firebaseConfig yang sudah diprioritaskan di atas
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
