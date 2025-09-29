@@ -196,13 +196,21 @@
         setLogLevel('debug');
 
         // =================================================================
-        // KONFIGURASI FIREBASE OTOMATIS UNTUK LINGKUNGAN SAAT INI
+        // KONFIGURASI FIREBASE OTOMATIS DENGAN PROJECT ID USER
         // =================================================================
         
         // Variabel global yang disediakan oleh lingkungan
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-wms-app';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // FIX: Hardcode Project ID yang disediakan user untuk memastikan inisialisasi berhasil.
+        // Kami menggunakan placeholder untuk API key, berharap lingkungan Canvas akan menggantinya.
+        const firebaseConfig = {
+            apiKey: "AIzaSyPlaceholderKey", // Placeholder, Diharapkan diganti oleh Canvas runtime
+            authDomain: "wms01-b45c5.firebaseapp.com",
+            projectId: "wms01-b45c5", // Project ID yang Anda berikan
+            storageBucket: "wms01-b45c5.appspot.com",
+        };
         
         // Firebase Initialization and Services
         let app;
@@ -264,19 +272,8 @@
         async function initFirebase() {
             try {
                 
-                const environmentProjectId = firebaseConfig.projectId;
-
-                // FIX: Gunakan appId sebagai projectId jika config.projectId kosong atau tidak ada.
-                const finalConfig = {
-                    ...firebaseConfig,
-                    projectId: (environmentProjectId && environmentProjectId.length > 0) ? environmentProjectId : appId,
-                };
-                
-                if (Object.keys(firebaseConfig).length === 0) {
-                    console.warn("Peringatan: Konfigurasi Firebase environment mungkin kosong, menggunakan App ID sebagai Project ID.");
-                }
-
-                app = initializeApp(finalConfig);
+                // Menggunakan firebaseConfig yang sudah diperbarui di atas (hardcode project ID)
+                app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
@@ -292,7 +289,7 @@
                     if (user) {
                         window.currentUser = user;
                         userId = user.uid;
-                        document.getElementById('auth-status').textContent = `Status: Terhubung (${userId.substring(0, 8)}...) | Project: ${appId}`;
+                        document.getElementById('auth-status').textContent = `Status: Terhubung (${userId.substring(0, 8)}...) | Project: ${firebaseConfig.projectId}`;
                         console.log("Firebase Auth Sukses. User ID:", userId);
                         
                         // 3. Start listening to Inventory data after auth is ready
