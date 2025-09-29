@@ -263,10 +263,13 @@
          */
         async function initFirebase() {
             try {
-                // Fix: Tambahkan projectId sebagai fallback jika firebaseConfig kosong
+                
+                const environmentProjectId = firebaseConfig.projectId;
+
+                // FIX: Gunakan appId sebagai projectId jika config.projectId kosong atau tidak ada.
                 const finalConfig = {
-                    projectId: appId, 
-                    ...firebaseConfig
+                    ...firebaseConfig,
+                    projectId: (environmentProjectId && environmentProjectId.length > 0) ? environmentProjectId : appId,
                 };
                 
                 if (Object.keys(firebaseConfig).length === 0) {
@@ -289,7 +292,6 @@
                     if (user) {
                         window.currentUser = user;
                         userId = user.uid;
-                        // Hapus sisa-sisa selection tag dan pastikan tampilan Project ID benar
                         document.getElementById('auth-status').textContent = `Status: Terhubung (${userId.substring(0, 8)}...) | Project: ${appId}`;
                         console.log("Firebase Auth Sukses. User ID:", userId);
                         
