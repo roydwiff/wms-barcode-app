@@ -263,10 +263,17 @@
          */
         async function initFirebase() {
             try {
+                // Fix: Tambahkan projectId sebagai fallback jika firebaseConfig kosong
+                const finalConfig = {
+                    projectId: appId, 
+                    ...firebaseConfig
+                };
+                
                 if (Object.keys(firebaseConfig).length === 0) {
-                    console.warn("Peringatan: Konfigurasi Firebase environment mungkin kosong.");
+                    console.warn("Peringatan: Konfigurasi Firebase environment mungkin kosong, menggunakan App ID sebagai Project ID.");
                 }
-                app = initializeApp(firebaseConfig);
+
+                app = initializeApp(finalConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
@@ -282,6 +289,7 @@
                     if (user) {
                         window.currentUser = user;
                         userId = user.uid;
+                        // Hapus sisa-sisa selection tag dan pastikan tampilan Project ID benar
                         document.getElementById('auth-status').textContent = `Status: Terhubung (${userId.substring(0, 8)}...) | Project: ${appId}`;
                         console.log("Firebase Auth Sukses. User ID:", userId);
                         
