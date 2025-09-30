@@ -196,27 +196,23 @@
         setLogLevel('debug');
 
         // =================================================================
-        // KONFIGURASI FIREBASE OTOMATIS DENGAN CONFIG LINGKUNGAN
+        // KONFIGURASI FIREBASE BERDASARKAN INPUT USER
         // =================================================================
         
         // Variabel global yang disediakan oleh lingkungan
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-wms-app';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // FIX: Gunakan konfigurasi lingkungan yang sudah di-parse
-        // Jika konfigurasi kosong (seperti di beberapa kasus), gunakan konfigurasi default
-        let firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        
-        // Pengecekan keamanan: Jika config kosong atau tidak ada projectId, gunakan default dengan projectId user.
-        if (Object.keys(firebaseConfig).length === 0 || !firebaseConfig.projectId) {
-            console.warn("Konfigurasi Firebase dari environment kosong atau tidak lengkap. Menggunakan Project ID Default.");
-            firebaseConfig = {
-                apiKey: "AIzaSyBlpx1lUsog0fbGtu73fWLpT2I6k0bh9CA", // Diharapkan disuntikkan oleh runtime
-                authDomain: "wms01-b45c5.firebaseapp.com",
-                projectId: "wms01-b45c5", // Project ID yang Anda berikan
-                storageBucket: "wms01-b45c5.appspot.com",
-            };
-        }
+        // Menggunakan konfigurasi Firebase Web Client yang valid dari pengguna
+        const firebaseConfig = {
+            apiKey: "AIzaSyBlpx1lUsog0fbGtu73fWLpT2I6k0bh9CA",
+            authDomain: "wms01-b45c5.firebaseapp.com",
+            projectId: "wms01-b45c5",
+            storageBucket: "wms01-b45c5.firebasestorage.app",
+            messagingSenderId: "490608373871",
+            appId: "1:490608373871:web:0f2b44ba99b5fa75a55d9a",
+            measurementId: "G-BH7664FPDG"
+        };
         
         // Firebase Initialization and Services
         let app;
@@ -229,7 +225,7 @@
         window.inventory = [];
         window.currentUser = null;
 
-        // Path Collection menggunakan App ID yang disediakan lingkungan
+        // Path Collection menggunakan App ID yang disediakan lingkungan (wajib sesuai aturan Canvas)
         const INVENTORY_COLLECTION = `artifacts/${appId}/public/data/wms_inventory`;
         
         // --- Utility Functions ---
