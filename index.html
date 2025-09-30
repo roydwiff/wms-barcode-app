@@ -188,23 +188,19 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, query, onSnapshot, doc, getDoc, setDoc, runTransaction, where, writeBatch, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, query, onSnapshot, doc, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Set Firebase log level for debugging
         setLogLevel('debug');
 
         // =================================================================
-        // KONFIGURASI FIREBASE BERDASARKAN INPUT USER (DENGAN LOGIKA FALLBACK)
+        // KONFIGURASI FIREBASE UNTUK DEPLOYMENT EKSTERNAL (GITHUB PAGES)
         // =================================================================
         
-        // Variabel global yang disediakan oleh lingkungan
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-wms-app';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
         // Konfigurasi Firebase Web Client yang valid dari pengguna
-        const userProvidedConfig = {
+        const firebaseConfig = {
             apiKey: "AIzaSyBlpx1lUsog0fbGtu73fWLpT2I6k0bh9CA",
             authDomain: "wms01-b45c5.firebaseapp.com",
             projectId: "wms01-b45c5",
@@ -213,23 +209,9 @@
             appId: "1:490608373871:web:0f2b44ba99b5fa75a55d9a",
             measurementId: "G-BH7664FPDG"
         };
-
-        // Prioritas konfigurasi: 1. Environment (__firebase_config), 2. User Provided Config
-        let firebaseConfig = {};
-        try {
-            // Coba parse config dari environment
-            const envConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-            if (Object.keys(envConfig).length > 0 && envConfig.projectId) {
-                firebaseConfig = envConfig;
-                console.log("Menggunakan konfigurasi dari lingkungan (Environment).");
-            } else {
-                firebaseConfig = userProvidedConfig;
-                console.log("Menggunakan konfigurasi yang disediakan pengguna (Hardcoded).");
-            }
-        } catch (e) {
-            console.error("Gagal parsing __firebase_config. Menggunakan konfigurasi yang disediakan pengguna.", e);
-            firebaseConfig = userProvidedConfig;
-        }
+        
+        // Pada deployment eksternal (seperti GitHub Pages), variabel __app_id dan __initial_auth_token TIDAK ADA.
+        // Kita HANYA menggunakan konfigurasi statis di atas dan signInAnonymously.
         
         // Firebase Initialization and Services
         let app;
@@ -242,8 +224,10 @@
         window.inventory = [];
         window.currentUser = null;
 
-        // Path Collection menggunakan App ID yang disediakan lingkungan (wajib sesuai aturan Canvas)
-        const INVENTORY_COLLECTION = `artifacts/${appId}/public/data/wms_inventory`;
+        // Path Collection Disederhanakan untuk deployment eksternal.
+        // Peringatan: Anda harus memastikan aturan keamanan (Security Rules) Firestore Anda mengizinkan
+        // operasi READ/WRITE publik ke koleksi ini jika menggunakan signInAnonymously.
+        const INVENTORY_COLLECTION = `wms_inventory`; 
         
         // --- Utility Functions ---
 
@@ -291,23 +275,20 @@
         async function initFirebase() {
             try {
                 
-                // Menggunakan firebaseConfig yang sudah diprioritaskan di atas
+                // Menggunakan konfigurasi statis yang disediakan pengguna
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // 1. Authenticate user
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // 1. Authenticate user menggunakan sign-in anonim (standar untuk GitHub Pages)
+                await signInAnonymously(auth);
 
                 // 2. Set up Auth State Listener
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         window.currentUser = user;
-                        userId = user.uid;
+                        // Menggunakan UID dari user anonim
+                        userId = user.uid; 
                         document.getElementById('auth-status').textContent = `Status: Terhubung (${userId.substring(0, 8)}...) | Project: ${firebaseConfig.projectId}`;
                         console.log("Firebase Auth Sukses. User ID:", userId);
                         
