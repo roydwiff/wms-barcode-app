@@ -196,7 +196,7 @@
         setLogLevel('debug');
 
         // =================================================================
-        // KONFIGURASI FIREBASE UNTUK DEPLOYMENT EKSTERNAL (GITHUB PAGES)
+        // KONFIGURASI FIREBASE UNTUK DEPLOYMENT EKSTERNAL (GITHUB PAGES/VERCEL)
         // =================================================================
         
         // Konfigurasi Firebase Web Client yang valid dari pengguna
@@ -210,9 +210,6 @@
             measurementId: "G-BH7664FPDG"
         };
         
-        // Pada deployment eksternal (seperti GitHub Pages), variabel __app_id dan __initial_auth_token TIDAK ADA.
-        // Kita HANYA menggunakan konfigurasi statis di atas dan signInAnonymously.
-        
         // Firebase Initialization and Services
         let app;
         let db;
@@ -225,8 +222,6 @@
         window.currentUser = null;
 
         // Path Collection Disederhanakan untuk deployment eksternal.
-        // Peringatan: Anda harus memastikan aturan keamanan (Security Rules) Firestore Anda mengizinkan
-        // operasi READ/WRITE publik ke koleksi ini jika menggunakan signInAnonymously.
         const INVENTORY_COLLECTION = `wms_inventory`; 
         
         // --- Utility Functions ---
@@ -275,7 +270,7 @@
         async function initFirebase() {
             try {
                 
-                // Menggunakan konfigurasi statis yang disediakan pengguna
+                // HANYA menggunakan konfigurasi statis yang disediakan pengguna
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -287,7 +282,6 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         window.currentUser = user;
-                        // Menggunakan UID dari user anonim
                         userId = user.uid; 
                         document.getElementById('auth-status').textContent = `Status: Terhubung (${userId.substring(0, 8)}...) | Project: ${firebaseConfig.projectId}`;
                         console.log("Firebase Auth Sukses. User ID:", userId);
