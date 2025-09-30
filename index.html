@@ -196,15 +196,15 @@
         setLogLevel('debug');
 
         // =================================================================
-        // KONFIGURASI FIREBASE BERDASARKAN INPUT USER
+        // KONFIGURASI FIREBASE BERDASARKAN INPUT USER (DENGAN LOGIKA FALLBACK)
         // =================================================================
         
         // Variabel global yang disediakan oleh lingkungan
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-wms-app';
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // Menggunakan konfigurasi Firebase Web Client yang valid dari pengguna
-        const firebaseConfig = {
+        // Konfigurasi Firebase Web Client yang valid dari pengguna
+        const userProvidedConfig = {
             apiKey: "AIzaSyBlpx1lUsog0fbGtu73fWLpT2I6k0bh9CA",
             authDomain: "wms01-b45c5.firebaseapp.com",
             projectId: "wms01-b45c5",
@@ -213,6 +213,23 @@
             appId: "1:490608373871:web:0f2b44ba99b5fa75a55d9a",
             measurementId: "G-BH7664FPDG"
         };
+
+        // Prioritas konfigurasi: 1. Environment (__firebase_config), 2. User Provided Config
+        let firebaseConfig = {};
+        try {
+            // Coba parse config dari environment
+            const envConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+            if (Object.keys(envConfig).length > 0 && envConfig.projectId) {
+                firebaseConfig = envConfig;
+                console.log("Menggunakan konfigurasi dari lingkungan (Environment).");
+            } else {
+                firebaseConfig = userProvidedConfig;
+                console.log("Menggunakan konfigurasi yang disediakan pengguna (Hardcoded).");
+            }
+        } catch (e) {
+            console.error("Gagal parsing __firebase_config. Menggunakan konfigurasi yang disediakan pengguna.", e);
+            firebaseConfig = userProvidedConfig;
+        }
         
         // Firebase Initialization and Services
         let app;
