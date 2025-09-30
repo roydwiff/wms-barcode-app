@@ -33,6 +33,16 @@
             justify-content: center;
             align-items: center;
         }
+        /* Style for barcode container */
+        .barcode-display {
+            font-family: monospace; /* Monospace font looks cleaner for barcode text */
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            padding: 1rem;
+            border: 1px dashed #ccc;
+            background-color: #f9f9f9;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -59,6 +69,7 @@
             <!-- Navigation / Menu Tabs -->
             <div class="flex justify-center space-x-2 md:space-x-4 mb-8 sticky top-16 bg-white p-3 rounded-xl shadow-md z-10">
                 <button onclick="changeView('dashboard')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Dashboard</button>
+                <button onclick="changeView('sku-register')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Registrasi SKU</button>
                 <button onclick="changeView('receive')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Penerimaan</button>
                 <button onclick="changeView('move')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Perpindahan</button>
                 <button onclick="changeView('pick')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Pengambilan</button>
@@ -106,12 +117,47 @@
                     </div>
                 </div>
 
+                <!-- SKU Register View -->
+                <div id="sku-register-view" class="view-section hidden">
+                    <div class="bg-white p-6 md:p-10 rounded-xl shadow-xl transaction-card">
+                        <h2 class="text-3xl font-bold text-gray-800 mb-6">Registrasi SKU & Barcode</h2>
+                        
+                        <div class="mb-6">
+                            <label class="block text-gray-700 font-semibold mb-2">1. Masukkan Kode SKU Baru (Wajib)</label>
+                            <input type="text" id="register-sku-code" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="Cth: PRODUK-ABC-001">
+
+                            <label class="block text-gray-700 font-semibold mb-2">2. Deskripsi/Nama Produk</label>
+                            <input type="text" id="register-sku-desc" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 mb-6" placeholder="Cth: Minuman Kaleng Rasa Jeruk">
+                            
+                            <button onclick="registerSku()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Daftarkan SKU Baru</button>
+                        </div>
+
+                        <div id="register-message" class="mt-4 p-3 rounded-lg text-center font-medium hidden"></div>
+
+                        <hr class="my-8">
+
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4">Cetak Barcode (SKU Terdaftar)</h3>
+                        <div class="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                            <label class="block text-gray-700 font-semibold mb-2">Kode Barcode (SKU)</label>
+                            <input type="text" id="barcode-print-sku" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="Masukkan SKU untuk dicetak">
+                            
+                            <button onclick="generateBarcode()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 mb-4">Tampilkan Barcode</button>
+                            
+                            <div id="barcode-output" class="text-center mt-4 hidden">
+                                <p class="text-sm text-gray-500 mb-2">SALIN teks ini untuk dicetak sebagai barcode</p>
+                                <div id="barcode-text-display" class="barcode-display select-all" onclick="copyBarcode(this)"></div>
+                                <p class="text-xs text-indigo-500 mt-2">Klik untuk Salin!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Transaction Views -->
                 <div id="receive-view" class="view-section hidden">
                     <div class="bg-white p-6 md:p-10 rounded-xl shadow-xl transaction-card">
                         <h2 class="text-3xl font-bold text-gray-800 mb-6">Penerimaan Barang (IN)</h2>
                         <div id="receive-step-1">
-                            <label class="block text-gray-700 font-semibold mb-2">1. Pindai/Masukkan Barcode SKU (Cth: MIE-001)</label>
+                            <label class="block text-gray-700 font-semibold mb-2">1. Pindai/Masukkan Barcode SKU (Wajib Terdaftar)</label>
                             <input type="text" id="receive-sku-input" class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="SKU Barcode" onkeypress="handleReceiveKeyPress(event)">
                             <button onclick="startReceiveStep2()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition duration-150">Lanjut</button>
                         </div>
@@ -188,9 +234,8 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        // Hapus signInAnonymously dan onAuthStateChanged
         import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"; 
-        import { getFirestore, collection, query, onSnapshot, doc, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, query, onSnapshot, doc, setDoc, runTransaction, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Set Firebase log level for debugging
@@ -214,8 +259,6 @@
         // Firebase Initialization and Services
         let app;
         let db;
-        // Hapus Auth service
-        // let auth;
         
         // userId tidak diperlukan karena tidak ada otentikasi. Kita akan menggunakan ID statis.
         const userId = 'PUBLIC_USER'; 
@@ -223,10 +266,12 @@
         // Application State
         window.currentView = 'dashboard';
         window.inventory = [];
+        window.skuMaster = {}; // NEW: Storage for registered SKUs
         window.currentUser = null;
 
         // Path Collection Disederhanakan untuk deployment eksternal.
         const INVENTORY_COLLECTION = `wms_inventory`; 
+        const SKU_MASTER_COLLECTION = `wms_sku_master`; // NEW: Master SKU Collection
         
         // --- Utility Functions ---
 
@@ -278,13 +323,34 @@
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 
-                // Mulai mendengarkan Inventaris tanpa menunggu Auth
+                // Mulai mendengarkan Inventaris dan SKU Master
                 setupInventoryListener();
+                setupSkuMasterListener();
 
             } catch (error) {
                 console.error("Error saat inisialisasi Firebase:", error);
                 document.getElementById('auth-status').textContent = `Status: Error - ${error.message}`;
             }
+        }
+        
+        /**
+         * Sets up real-time listener for the SKU Master collection.
+         */
+        function setupSkuMasterListener() {
+            if (!db) return;
+
+            const q = query(collection(db, SKU_MASTER_COLLECTION));
+            
+            onSnapshot(q, (snapshot) => {
+                window.skuMaster = {};
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    window.skuMaster[doc.id] = data;
+                });
+                console.log("SKU Master Diperbarui:", Object.keys(window.skuMaster).length, "SKU terdaftar.");
+            }, (error) => {
+                console.error("Error saat mendapatkan snapshot SKU Master:", error);
+            });
         }
 
         /**
@@ -380,6 +446,94 @@
             }
             return success;
         }
+        
+        // --- SKU MASTER Functions ---
+        
+        window.registerSku = async function() {
+            const skuInput = document.getElementById('register-sku-code');
+            const descInput = document.getElementById('register-sku-desc');
+            const skuCode = skuInput.value.trim().toUpperCase();
+            const skuDesc = descInput.value.trim();
+            const messageEl = 'register-message';
+
+            if (!skuCode || !skuDesc) {
+                showMessage(messageEl, 'SKU Code dan Deskripsi wajib diisi.', 'error');
+                return;
+            }
+
+            if (window.skuMaster[skuCode]) {
+                showMessage(messageEl, `SKU ${skuCode} sudah terdaftar.`, 'error');
+                return;
+            }
+            
+            showMessage(messageEl, 'Mendaftarkan SKU...', 'info');
+
+            try {
+                const docRef = doc(db, SKU_MASTER_COLLECTION, skuCode);
+                await setDoc(docRef, {
+                    code: skuCode,
+                    description: skuDesc,
+                    createdAt: new Date().toISOString(),
+                    createdBy: userId
+                });
+                
+                showMessage(messageEl, `SKU ${skuCode} berhasil didaftarkan!`, 'success');
+                skuInput.value = '';
+                descInput.value = '';
+                skuInput.focus();
+            } catch (e) {
+                showMessage(messageEl, `Gagal mendaftarkan SKU: ${e.message}`, 'error');
+            }
+        };
+
+        window.generateBarcode = async function() {
+            const skuInput = document.getElementById('barcode-print-sku');
+            const skuCode = skuInput.value.trim().toUpperCase();
+            const outputEl = document.getElementById('barcode-output');
+            const textEl = document.getElementById('barcode-text-display');
+
+            if (!skuCode) {
+                outputEl.classList.add('hidden');
+                showMessage('register-message', 'Masukkan SKU yang ingin Anda cetak.', 'error');
+                return;
+            }
+
+            // Cek apakah SKU terdaftar
+            if (!window.skuMaster[skuCode]) {
+                 outputEl.classList.add('hidden');
+                 showMessage('register-message', `SKU ${skuCode} belum terdaftar di sistem.`, 'error');
+                 return;
+            }
+            
+            // Simulasi Barcode: hanya menampilkan teks kode
+            textEl.textContent = skuCode;
+            outputEl.classList.remove('hidden');
+        };
+
+        window.copyBarcode = function(el) {
+            const textToCopy = el.textContent;
+            try {
+                // Metode modern yang lebih reliable (untuk lingkungan yang support)
+                navigator.clipboard.writeText(textToCopy);
+                showMessage('register-message', `Kode Barcode (${textToCopy}) berhasil disalin!`, 'success');
+            } catch (err) {
+                // Fallback untuk iFrame/lingkungan terbatas
+                console.error('Gagal menyalin menggunakan navigator.clipboard:', err);
+                const textArea = document.createElement("textarea");
+                textArea.value = textToCopy;
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showMessage('register-message', `Kode Barcode (${textToCopy}) berhasil disalin! (Fallback)`, 'success');
+                } catch (err) {
+                    showMessage('register-message', 'Gagal menyalin kode. Silakan salin manual.', 'error');
+                }
+                document.body.removeChild(textArea);
+            }
+        };
+
 
         // --- Core WMS Logic (Receive, Move, Pick) ---
 
@@ -399,6 +553,13 @@
                 showMessage('receive-message', 'Masukkan Barcode SKU yang valid.', 'error');
                 skuInput.focus();
                 return;
+            }
+            
+            // NEW VALIDATION: Check if SKU is registered in the master list
+            if (!window.skuMaster[sku]) {
+                 showMessage('receive-message', `SKU ${sku} belum terdaftar! Silakan daftarkan di tab Registrasi SKU.`, 'error');
+                 skuInput.focus();
+                 return;
             }
 
             receiveState.sku = sku;
@@ -476,10 +637,17 @@
                 return;
             }
             
-            // Basic check if SKU exists (optional: a more thorough check would be better)
+            // Check if SKU exists in inventory
             const exists = window.inventory.some(item => item.sku === sku && item.qty > 0);
             if (!exists) {
                  showMessage('move-message', `SKU ${sku} tidak ditemukan di gudang (atau stok 0).`, 'error');
+                 return;
+            }
+            
+            // NEW VALIDATION: Check if SKU is registered in the master list
+            if (!window.skuMaster[sku]) {
+                 showMessage('move-message', `SKU ${sku} tidak terdaftar. Cek Registrasi SKU.`, 'error');
+                 skuInput.focus();
                  return;
             }
 
@@ -544,9 +712,6 @@
                 resetMove();
             } catch (e) {
                 showMessage('move-message', `Gagal Perpindahan: ${e.message}`, 'error');
-                // NOTE: In a real system, a failed transaction needs rollback logic if step 1 passed and step 2 failed.
-                // However, runTransaction only runs one update, so here we use two transactions, but the first one 
-                // ensures stock validity. A real WMS uses Batch/Transaction for atomicity.
             }
         };
         
@@ -597,6 +762,14 @@
                 skuInput.focus();
                 return;
             }
+            
+            // NEW VALIDATION: Check if SKU is registered in the master list
+            if (!window.skuMaster[sku]) {
+                 showMessage('pick-message', `SKU ${sku} tidak terdaftar. Cek Registrasi SKU.`, 'error');
+                 skuInput.focus();
+                 return;
+            }
+
 
             pickState.sku = sku;
             document.getElementById('current-pick-sku').textContent = sku;
@@ -690,8 +863,14 @@
 
                         const row = document.createElement('tr');
                         row.classList.add('hover:bg-gray-50');
+                        // NEW: Show description if available
+                        const description = window.skuMaster[item.sku] ? window.skuMaster[item.sku].description : 'N/A';
+
                         row.innerHTML = `
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${item.sku}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                ${item.sku}
+                                <br><span class="text-xs text-gray-400">${description}</span>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${item.location}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-800">${item.qty.toLocaleString('id-ID')}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-400">${new Date(item.updatedAt).toLocaleTimeString('id-ID')}</td>
