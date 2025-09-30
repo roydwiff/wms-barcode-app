@@ -42,7 +42,7 @@
         <!-- Header -->
         <header class="bg-gray-800 text-white shadow-lg p-4 sticky top-0 z-10">
             <h1 class="text-2xl font-bold">Smart WMS Barcode</h1>
-            <p id="auth-status" class="text-sm text-gray-400 mt-1">Status: Menghubungkan...</p>
+            <p id="auth-status" class="text-sm text-gray-400 mt-1">Status: Terhubung (Publik)</p>
         </header>
 
         <!-- Loading Overlay -->
@@ -188,7 +188,8 @@
     <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // Hapus signInAnonymously dan onAuthStateChanged
+        import { getAuth } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js"; 
         import { getFirestore, collection, query, onSnapshot, doc, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
@@ -196,7 +197,7 @@
         setLogLevel('debug');
 
         // =================================================================
-        // KONFIGURASI FIREBASE UNTUK DEPLOYMENT EKSTERNAL (GITHUB PAGES/VERCEL)
+        // KONFIGURASI FIREBASE (PUBLIC)
         // =================================================================
         
         // Konfigurasi Firebase Web Client yang valid dari pengguna
@@ -213,8 +214,11 @@
         // Firebase Initialization and Services
         let app;
         let db;
-        let auth;
-        let userId = 'unknown';
+        // Hapus Auth service
+        // let auth;
+        
+        // userId tidak diperlukan karena tidak ada otentikasi. Kita akan menggunakan ID statis.
+        const userId = 'PUBLIC_USER'; 
 
         // Application State
         window.currentView = 'dashboard';
@@ -222,7 +226,6 @@
         window.currentUser = null;
 
         // Path Collection Disederhanakan untuk deployment eksternal.
-        // FIX: Menghapus tag HTML yang merusak nama koleksi.
         const INVENTORY_COLLECTION = `wms_inventory`; 
         
         // --- Utility Functions ---
@@ -266,34 +269,17 @@
         // --- Firebase Core Functions ---
 
         /**
-         * Initializes Firebase and handles authentication.
+         * Initializes Firebase and starts listening to data.
          */
         async function initFirebase() {
             try {
                 
-                // HANYA menggunakan konfigurasi statis yang disediakan pengguna
+                // Inisialisasi tanpa Auth
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
-                auth = getAuth(app);
                 
-                // 1. Authenticate user menggunakan sign-in anonim (standar untuk GitHub Pages)
-                await signInAnonymously(auth);
-
-                // 2. Set up Auth State Listener
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        window.currentUser = user;
-                        userId = user.uid; 
-                        document.getElementById('auth-status').textContent = `Status: Terhubung (${userId.substring(0, 8)}...) | Project: ${firebaseConfig.projectId}`;
-                        console.log("Firebase Auth Sukses. User ID:", userId);
-                        
-                        // 3. Start listening to Inventory data after auth is ready
-                        setupInventoryListener();
-                    } else {
-                        document.getElementById('auth-status').textContent = 'Status: Gagal Autentikasi';
-                        console.error("Firebase Auth Gagal.");
-                    }
-                });
+                // Mulai mendengarkan Inventaris tanpa menunggu Auth
+                setupInventoryListener();
 
             } catch (error) {
                 console.error("Error saat inisialisasi Firebase:", error);
@@ -325,6 +311,7 @@
             }, (error) => {
                 console.error("Error saat mendapatkan snapshot inventaris:", error);
                 toggleLoading(false);
+                // Pesan peringatan yang jelas untuk pengguna publik
                 showMessage('auth-status', 'Gagal memuat inventaris real-time. (Cek Rule Firestore Anda)', 'error');
             });
         }
@@ -361,7 +348,7 @@
                     finalQty = currentQty + qtyChange;
                     
                     // Validation for picking/moving out (must not result in negative stock)
-                    if (finalQty < 0) {
+                    if (qtyChange < 0 && finalQty < 0) {
                         throw new Error(`Stok tidak cukup. Stok saat ini ${currentQty} di ${formattedLocation}. Permintaan ${-qtyChange}.`);
                     }
 
@@ -385,6 +372,10 @@
                 });
             } catch (error) {
                 console.error("Error dalam Transaksi:", error);
+                // Tambahkan penanganan izin khusus untuk pengguna publik
+                if (error.code === 'PERMISSION_DENIED') {
+                    throw new Error("Gagal: Izin ditolak. Pastikan Aturan Keamanan Firestore Anda diatur ke 'allow read, write: if true;'.");
+                }
                 throw error; // Re-throw to be caught by the calling function
             }
             return success;
