@@ -24,7 +24,8 @@
             text-transform: uppercase;
         }
         .transaction-card {
-            min-height: 400px;
+            /* Menyesuaikan min-height agar tidak terlalu panjang di mobile */
+            min-height: auto; 
         }
         .loading-overlay {
             position: fixed;
@@ -68,15 +69,36 @@
 
         /* PERBAIKAN MOBILE: Memastikan tombol navigasi tidak berantakan */
         .nav-menu-wrapper {
-            /* Flex-wrap hanya akan aktif pada ukuran layar kecil */
+            /* Memastikan menu wrap di mobile */
             flex-wrap: wrap; 
             justify-content: space-around;
         }
         .nav-btn {
             /* Memastikan tombol menu memiliki margin yang pas di mobile */
             margin: 0.25rem; 
-            flex-grow: 1; /* Memastikan lebar tombol merata */
+            flex-grow: 1; 
             text-align: center;
+            /* Ukuran font lebih kecil di mobile */
+            font-size: 0.875rem; 
+            padding: 0.5rem 0.25rem; 
+        }
+
+        /* Memastikan padding di main content tetap nyaman */
+        main {
+            padding: 1rem;
+        }
+
+        @media (min-width: 768px) {
+            .nav-btn {
+                font-size: 1rem;
+                padding: 0.75rem 1rem;
+            }
+            main {
+                padding: 2rem;
+            }
+            .transaction-card {
+                 min-height: 400px; 
+            }
         }
     </style>
 </head>
@@ -102,12 +124,13 @@
         <main class="flex-grow p-4 md:p-8">
 
             <!-- Navigation / Menu Tabs (PERBAIKAN: Menggunakan nav-menu-wrapper dan flex-wrap) -->
-            <div class="nav-menu-wrapper flex justify-center space-x-2 md:space-x-4 mb-8 sticky top-16 bg-white p-3 rounded-xl shadow-md z-10">
-                <button onclick="changeView('dashboard')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Dashboard</button>
-                <button onclick="changeView('sku-register')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Registrasi SKU</button>
-                <button onclick="changeView('receive')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Penerimaan</button>
-                <button onclick="changeView('move')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Perpindahan</button>
-                <button onclick="changeView('pick')" class="nav-btn p-3 rounded-lg font-semibold text-sm md:text-base transition duration-150 ease-in-out">Pengambilan</button>
+            <div class="nav-menu-wrapper flex justify-center space-x-2 md:space-x-4 mb-6 sticky top-16 bg-white p-3 rounded-xl shadow-md z-10">
+                <button onclick="changeView('dashboard')" class="nav-btn p-3 rounded-lg font-semibold transition duration-150 ease-in-out">Dashboard</button>
+                <button onclick="changeView('search')" class="nav-btn p-3 rounded-lg font-semibold transition duration-150 ease-in-out">Cari</button>
+                <button onclick="changeView('sku-register')" class="nav-btn p-3 rounded-lg font-semibold transition duration-150 ease-in-out">Registrasi SKU</button>
+                <button onclick="changeView('receive')" class="nav-btn p-3 rounded-lg font-semibold transition duration-150 ease-in-out">Penerimaan</button>
+                <button onclick="changeView('move')" class="nav-btn p-3 rounded-lg font-semibold transition duration-150 ease-in-out">Perpindahan</button>
+                <button onclick="changeView('pick')" class="nav-btn p-3 rounded-lg font-semibold transition duration-150 ease-in-out">Pengambilan</button>
             </div>
 
             <!-- View Sections -->
@@ -150,6 +173,41 @@
                         </table>
                         <div id="empty-inventory" class="p-4 text-center text-gray-500" style="display: none;">
                             Inventaris kosong. Silakan mulai Penerimaan.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Search View -->
+                <div id="search-view" class="view-section hidden">
+                    <div class="bg-white p-6 md:p-10 rounded-xl shadow-xl transaction-card">
+                        <h2 class="text-3xl font-bold text-gray-800 mb-6">Pencarian Inventaris</h2>
+                        
+                        <div class="mb-6">
+                            <label class="block text-gray-700 font-semibold mb-2">Cari berdasarkan SKU, Lokasi, atau Deskripsi</label>
+                            <input type="text" id="search-input" 
+                                class="scan-input w-full border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" 
+                                placeholder="Masukkan SKU atau Lokasi (Cth: ABC-001 atau A1B2)" 
+                                oninput="searchInventory()">
+                        </div>
+
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4">Hasil Pencarian</h3>
+                         <div class="bg-white rounded-xl shadow-lg overflow-x-auto border"> 
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lokasi</th>
+                                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="search-results-list" class="bg-white divide-y divide-gray-200">
+                                    <!-- Hasil pencarian akan dimasukkan di sini oleh JS -->
+                                </tbody>
+                            </table>
+                            <div id="empty-search" class="p-4 text-center text-gray-500">
+                                Mulai ketik untuk mencari inventaris...
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -404,8 +462,14 @@
                     window.skuMaster[doc.id] = data;
                 });
                 console.log("SKU Master Diperbarui:", Object.keys(window.skuMaster).length, "SKU terdaftar.");
+                
+                // FIX KRITIS: Panggil renderDashboard untuk memperbarui Total SKU Unik
+                renderDashboard(); 
+                
             }, (error) => {
                 console.error("Error saat mendapatkan snapshot SKU Master:", error);
+                // Menambahkan pesan error visual jika Listener SKU Master gagal
+                showMessage('auth-status', 'Gagal memuat Master SKU. (Cek Rule Firestore: wms_sku_master)', 'error');
             });
         }
 
@@ -734,7 +798,7 @@
             }
             
             // Check if SKU exists in inventory
-            const exists = window.inventory.some(item => item.sku === sku && item.qty > 0);
+            const exists = window.inventory.some(item => (item.sku || '') === sku && item.qty > 0);
             if (!exists) {
                  showMessage('move-message', `SKU ${sku} tidak ditemukan di gudang (atau stok 0).`, 'error');
                  return;
@@ -766,7 +830,7 @@
             }
             
             // Check if stock exists at this location
-            const currentStock = window.inventory.find(item => item.sku === moveState.sku && item.location === fromLocation);
+            const currentStock = window.inventory.find(item => (item.sku || '') === moveState.sku && (item.location || '') === fromLocation);
             if (!currentStock || currentStock.qty <= 0) {
                  showMessage('move-message', `SKU ${moveState.sku} tidak memiliki stok di Lokasi ${fromLocation}.`, 'error');
                  document.getElementById('move-from-location-input').focus();
@@ -863,7 +927,7 @@
             
             // NEW VALIDATION: Check if SKU is registered in the master list
             if (!window.skuMaster[sku]) {
-                 showMessage('pick-message', `SKU ${sku} tidak terdaftar. Cek Registrasi SKU.`, 'error');
+                 showMessage('pick-message', `SKU ${sku} belum terdaftar. Cek Registrasi SKU.`, 'error');
                  skuInput.focus();
                  return;
             }
@@ -928,60 +992,118 @@
         // --- UI Rendering and Navigation ---
 
         /**
+         * Renders the search results table.
+         * @param {Array<Object>} results - Array of inventory items to display.
+         * @param {string} targetId - ID of the tbody element to render into.
+         */
+        function renderInventoryTable(results, targetId, emptyMessage) {
+            const listEl = document.getElementById(targetId);
+            const emptyEl = document.getElementById(emptyMessage);
+            listEl.innerHTML = '';
+
+            if (results.length === 0) {
+                emptyEl.style.display = 'block';
+                emptyEl.textContent = "Tidak ada data yang ditemukan.";
+            } else {
+                emptyEl.style.display = 'none';
+            }
+            
+            results
+                .filter(item => item.qty > 0)
+                .sort((a, b) => {
+                    // FIX: Melindungi dari properti yang tidak ada saat mengurutkan
+                    const skuA = a.sku || '';
+                    const skuB = b.sku || '';
+                    const locA = a.location || '';
+                    const locB = b.location || '';
+                    
+                    if (skuA < skuB) return -1;
+                    if (skuA > skuB) return 1;
+                    if (locA < locB) return -1;
+                    if (locA > locB) return 1;
+                    return 0;
+                })
+                .forEach(item => {
+                    const row = document.createElement('tr');
+                    row.classList.add('hover:bg-gray-50');
+                    const description = window.skuMaster[item.sku || ''] ? window.skuMaster[item.sku || ''].description : 'N/A';
+
+                    // FIX: Gunakan fallback string untuk menghindari 'undefined'
+                    const displaySku = item.sku || 'SKU HILANG';
+                    const displayLocation = item.location || 'LOKASI HILANG';
+
+                    row.innerHTML = `
+                        <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${displaySku}</td>
+                        <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${description}</td>
+                        <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${displayLocation}</td>
+                        <td class="px-3 py-4 whitespace-nowrap text-sm font-bold text-gray-800">${item.qty.toLocaleString('id-ID')}</td>
+                    `;
+                    listEl.appendChild(row);
+                });
+        }
+        
+        /**
          * Renders the real-time inventory list and dashboard stats.
          */
         function renderDashboard() {
-            const listEl = document.getElementById('inventory-list');
-            const emptyEl = document.getElementById('empty-inventory');
-            listEl.innerHTML = '';
+            renderInventoryTable(window.inventory, 'inventory-list', 'empty-inventory');
 
             let totalQty = 0;
-            const uniqueSKUs = new Set();
             const uniqueLocations = new Set();
             
-            if (window.inventory.length === 0) {
-                emptyEl.style.display = 'block';
-            } else {
-                emptyEl.style.display = 'none';
-                
+            if (window.inventory.length > 0) {
                 window.inventory
-                    .filter(item => item.qty > 0) // Only show items with stock
-                    .sort((a, b) => {
-                        // Sort by SKU then by Location
-                        if (a.sku < b.sku) return -1;
-                        if (a.sku > b.sku) return 1;
-                        if (a.location < b.location) return -1;
-                        if (a.location > b.location) return 1;
-                        return 0;
-                    })
+                    .filter(item => item.qty > 0)
                     .forEach(item => {
                         totalQty += item.qty;
-                        uniqueSKUs.add(item.sku);
-                        uniqueLocations.add(item.location);
-
-                        const row = document.createElement('tr');
-                        row.classList.add('hover:bg-gray-50');
-                        // NEW: Show description if available
-                        const description = window.skuMaster[item.sku] ? window.skuMaster[item.sku].description : 'N/A';
-
-                        row.innerHTML = `
-                            <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                ${item.sku}
-                                <br><span class="text-xs text-gray-400">${description}</span>
-                            </td>
-                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${item.location}</td>
-                            <td class="px-3 py-4 whitespace-nowrap text-sm font-bold text-gray-800">${item.qty.toLocaleString('id-ID')}</td>
-                            <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-400">${new Date(item.updatedAt).toLocaleTimeString('id-ID')}</td>
-                        `;
-                        listEl.appendChild(row);
+                        uniqueLocations.add(item.location || 'UNKNOWN'); // Gunakan UNKNOWN sebagai fallback
                     });
             }
 
             // Update stats
-            document.getElementById('total-sku').textContent = uniqueSKUs.size.toLocaleString('id-ID');
+            // FIX: Mengambil total SKU Unik dari window.skuMaster (Master Data)
+            document.getElementById('total-sku').textContent = Object.keys(window.skuMaster).length.toLocaleString('id-ID');
             document.getElementById('total-qty').textContent = totalQty.toLocaleString('id-ID');
             document.getElementById('total-locations').textContent = uniqueLocations.size.toLocaleString('id-ID');
         }
+
+        /**
+         * Logic for client-side search based on SKU or Location.
+         */
+        window.searchInventory = function() {
+            const query = document.getElementById('search-input').value.trim().toUpperCase();
+            
+            if (query.length < 2 && query.length !== 0) {
+                 // Tidak perlu melakukan apa-apa jika query terlalu pendek
+                 return;
+            }
+
+            const filteredResults = window.inventory.filter(item => {
+                // FIX KRITIS: Menambahkan fallback string ('') untuk item.sku dan item.location
+                const itemSku = item.sku || ''; 
+                const itemLocation = item.location || '';
+
+                // Karena item.sku/item.location sudah dalam uppercase (dari penyimpanan), kita tidak perlu toUpperCase() lagi.
+                const skuMatch = itemSku.includes(query);
+                const locationMatch = itemLocation.includes(query);
+                
+                // Cari juga di deskripsi SKU (jika ada)
+                let descMatch = false;
+                const skuData = window.skuMaster[itemSku];
+                if (skuData && skuData.description) {
+                    descMatch = skuData.description.toUpperCase().includes(query);
+                }
+
+                return item.qty > 0 && (skuMatch || locationMatch || descMatch);
+            });
+
+            if (query.length === 0) {
+                // Tampilkan pesan default
+                document.getElementById('empty-search').textContent = "Masukkan SKU, Lokasi, atau Deskripsi untuk memulai pencarian...";
+            }
+
+            renderInventoryTable(filteredResults, 'search-results-list', 'empty-search');
+        };
 
         /**
          * Switches the active view/tab.
