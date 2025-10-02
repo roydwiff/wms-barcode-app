@@ -162,9 +162,10 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
                                     <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lokasi</th>
-                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah</th>
-                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diperbarui</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah</th> <!-- FIX: Jumlah (Stok) digeser ke sini -->
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Diperbarui</th> <!-- FIX: Diperbarui (Waktu) digeser ke sini -->
                                 </tr>
                             </thead>
                             <tbody id="inventory-list" class="bg-white divide-y divide-gray-200">
@@ -1031,12 +1032,34 @@
                     // FIX: Gunakan fallback string untuk menghindari 'undefined'
                     const displaySku = item.sku || 'SKU HILANG';
                     const displayLocation = item.location || 'LOKASI HILANG';
+                    const displayDescription = description;
+                    const displayQty = item.qty.toLocaleString('id-ID');
+                    
+                    // Format waktu untuk tampilan yang lebih singkat
+                    let displayTimestamp = 'N/A';
+                    if (item.updatedAt) {
+                         try {
+                            const date = new Date(item.updatedAt);
+                            displayTimestamp = date.toLocaleString('id-ID', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                            });
+                         } catch (e) {
+                             displayTimestamp = item.updatedAt.substring(0, 10); // Fallback to date only
+                         }
+                    }
 
+
+                    // PERBAIKAN STRUKTUR KOLOM SESUAI PERMINTAAN USER: SKU | Deskripsi | Lokasi | Jumlah | Diperbarui
                     row.innerHTML = `
                         <td class="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${displaySku}</td>
-                        <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${description}</td>
+                        <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${displayDescription}</td>
                         <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${displayLocation}</td>
-                        <td class="px-3 py-4 whitespace-nowrap text-sm font-bold text-gray-800">${item.qty.toLocaleString('id-ID')}</td>
+                        <td class="px-3 py-4 whitespace-nowrap text-sm font-bold text-gray-800">${displayQty}</td>
+                        <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${displayTimestamp}</td>
                     `;
                     listEl.appendChild(row);
                 });
@@ -1102,7 +1125,8 @@
                 document.getElementById('empty-search').textContent = "Masukkan SKU, Lokasi, atau Deskripsi untuk memulai pencarian...";
             }
 
-            renderInventoryTable(filteredResults, 'search-results-list', 'empty-search');
+            // Panggil renderInventoryTable untuk menampilkan hasil
+             renderInventoryTable(filteredResults, 'search-results-list', 'empty-search');
         };
 
         /**
