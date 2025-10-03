@@ -718,8 +718,8 @@
             }
             
             // --- NEW FIX: Convert Canvas to static Image for Print Reliability ---
-            // 4. Tunggu sebentar agar elemen canvas selesai digambar
-            await delay(50); 
+            // 4. FIX DELAY: Tunggu lebih lama (200ms) agar elemen canvas/image selesai digambar
+            await delay(200); 
             
             // Ambil elemen canvas yang baru digambar
             const canvas = newPlaceholder.querySelector('canvas');
