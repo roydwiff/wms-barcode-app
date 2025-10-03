@@ -137,6 +137,11 @@
                 border: none;
                 justify-content: center; 
             }
+
+            /* FIX KRITIS: Memastikan CANVAS/IMAGE yang dikloning terlihat */
+            .print-area img, .print-area canvas {
+                display: block !important;
+            }
         }
     </style>
 </head>
@@ -718,8 +723,8 @@
             }
             
             // --- NEW FIX: Convert Canvas to static Image for Print Reliability ---
-            // 4. FIX DELAY: Tunggu lebih lama (200ms) agar elemen canvas/image selesai digambar
-            await delay(200); 
+            // 4. FIX DELAY: Tunggu lebih lama (500ms) agar elemen canvas/image selesai digambar
+            await delay(500); // Ditingkatkan menjadi 500ms
             
             // Ambil elemen canvas yang baru digambar
             const canvas = newPlaceholder.querySelector('canvas');
@@ -734,6 +739,9 @@
                 printImg.alt = "QR Code";
                 printImg.style.width = '128px'; 
                 printImg.style.height = '128px';
+                
+                // Tambahkan kelas print-area agar CSS media query bisa menangkapnya
+                printImg.classList.add('print-area-image'); 
 
                 // Ganti elemen placeholder dengan gambar statis
                 newPlaceholder.innerHTML = ''; 
@@ -750,15 +758,56 @@
 
             // 6. LOGIKA DELAY CETAK
             if(shouldPrint) {
-                // Berikan jeda waktu 500ms (setengah detik) setelah konversi (lebih aman dari 1000ms)
+                // Berikan jeda waktu 700ms setelah konversi untuk memastikan browser menangkap <img>
                 setTimeout(() => {
-                    window.print();
+                    // METHOD BARU: Cetak DOM Element
+                    printDomElement(document.getElementById('print-content'));
                     if(printButtonEl) printButtonEl.disabled = false;
-                }, 500); 
+                }, 700); 
             } else {
                 if(printButtonEl) printButtonEl.disabled = false;
             }
         };
+        
+        // =================================================================
+        // FUNGSI BARU: MENCETAK ELEMEN DOM SECARA LANGSUNG
+        // =================================================================
+        function printDomElement(element) {
+            const printWindow = window.open('', '', 'height=600,width=800');
+            printWindow.document.write('<html><head><title>Cetak QR Code</title>');
+            // Salin CSS yang diperlukan untuk cetak
+            printWindow.document.write('<style>@media print { body { padding: 0; margin: 0; } #print-area-temp { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; padding: 10px; box-sizing: border-box; } #print-area-temp img { display: block; margin: 10px auto; } p { font-family: "Inter", sans-serif; } }</style>');
+            printWindow.document.write('</head><body>');
+            
+            // Kloning konten cetak
+            const clonedContent = element.cloneNode(true);
+            
+            // Hapus tombol dan elemen yang tidak perlu dicetak
+            clonedContent.querySelector('.print-hidden').style.display = 'none'; // Sembunyikan tombol cetak
+            clonedContent.querySelector('.barcode-display-copy').style.display = 'none'; // Sembunyikan teks scannable
+            clonedContent.querySelector('#print-sku-title').classList.remove('print-hidden'); 
+            clonedContent.querySelector('#print-sku-desc').classList.remove('print-hidden');
+
+            // Hapus teks "VISUAL (QR CODE DAPAT DI-SCAN):"
+            const visualText = clonedContent.querySelector('.qrcode-container').previousElementSibling;
+            if(visualText && visualText.textContent.includes('VISUAL')) {
+                visualText.style.display = 'none';
+            }
+            
+            // Bungkus konten di div temporer
+            const wrapper = printWindow.document.createElement('div');
+            wrapper.id = 'print-area-temp';
+            wrapper.appendChild(clonedContent);
+            printWindow.document.body.appendChild(wrapper);
+
+            printWindow.document.write('</body></html>');
+            
+            // Tunggu sedikit sebelum mencetak
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 50); // Delay kecil sebelum cetak
+        }
         
         window.printQR = function() {
             // Panggil generateBarcode lagi, tetapi kali ini dengan flag 'shouldPrint' true
