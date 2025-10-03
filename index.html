@@ -275,7 +275,7 @@
                             <label class="block text-gray-700 font-semibold mb-2">Kode SKU</label>
                             <input type="text" id="barcode-print-sku" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="Masukkan SKU untuk dicetak">
                             
-                            <button onclick="generateBarcode()" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 mb-4">Tampilkan QR Code</button>
+                            <button onclick="generateBarcode(false)" class="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg transition duration-150 mb-4">Tampilkan QR Code</button>
                             
                             <div id="barcode-output" class="text-center mt-4 hidden print-area">
                                 
@@ -289,7 +289,7 @@
                                     <p id="print-sku-desc" class="barcode-code text-gray-600 text-sm mb-4"></p>
                                     
                                     <!-- TOMBOL CETAK DENGAN FUNGSI window.print() -->
-                                    <button onclick="window.print()" class="mt-4 w-4/5 bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg transition duration-150 print-hidden">Cetak QR Code Ini</button>
+                                    <button onclick="printQR()" class="mt-4 w-4/5 bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg transition duration-150 print-hidden">Cetak QR Code Ini</button>
 
                                     <p class="text-sm text-gray-500 mt-4 mb-2 print-hidden">TEKS YANG DIHASILKAN (KLIK UNTUK SALIN & SIMULASI SCAN):</p>
                                     <div id="barcode-text-display" class="barcode-display-copy select-all print-hidden" onclick="copyBarcode(this)"></div>
@@ -656,7 +656,7 @@
             }
         };
 
-        window.generateBarcode = async function() {
+        window.generateBarcode = async function(shouldPrint = false) {
             const skuInput = document.getElementById('barcode-print-sku');
             const skuCode = skuInput.value.trim().toUpperCase();
             const outputEl = document.getElementById('barcode-output');
@@ -666,6 +666,7 @@
             // Ambil elemen baru untuk menampilkan SKU dan Deskripsi di area cetak
             const skuTitleEl = document.getElementById('print-sku-title');
             const skuDescEl = document.getElementById('print-sku-desc');
+            const printButtonEl = document.querySelector('#barcode-output button'); // Ambil tombol cetak
 
 
             if (!skuCode) {
@@ -685,6 +686,9 @@
             // Generate teks scannable (Teks mentah SKU)
             const scannableCode = generateCode39Simulation(skuCode);
             
+            // Sembunyikan tombol cetak saat proses render dimulai
+            if(printButtonEl) printButtonEl.disabled = true;
+
             // FIX: Hapus konten DIV lama (yang berisi QR Code lama) sebelum menggambar yang baru
             qrcodeDivEl.innerHTML = '';
 
@@ -703,6 +707,7 @@
                 console.error("QRCode Gagal Render:", e);
                 qrcodeDivEl.innerHTML = '<p class="text-red-500">Gagal Render QR Code.</p>';
                 showMessage('register-message', 'Gagal membuat QR Code visual. Periksa konsol untuk detail.', 'error');
+                if(printButtonEl) printButtonEl.disabled = false;
                 return;
             }
             
@@ -714,7 +719,25 @@
             skuDescEl.textContent = skuData.description;
 
             outputEl.classList.remove('hidden');
+
+            // 4. LOGIKA DELAY CETAK
+            if(shouldPrint) {
+                // Berikan jeda waktu 200ms agar QR Code selesai di-render ke DOM sebelum dicetak
+                setTimeout(() => {
+                    window.print();
+                    if(printButtonEl) printButtonEl.disabled = false;
+                }, 200); 
+            } else {
+                if(printButtonEl) printButtonEl.disabled = false;
+            }
         };
+        
+        window.printQR = function() {
+            // Panggil generateBarcode lagi, tetapi kali ini dengan flag 'shouldPrint' true
+            // Ini akan memastikan QR code di-render ulang (atau dipastikan ada) lalu dicetak setelah delay.
+            window.generateBarcode(true);
+        };
+
 
         window.copyBarcode = function(el) {
             // Salin teks scannable code yang terlihat (SKU mentah)
