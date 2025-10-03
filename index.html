@@ -51,7 +51,7 @@
             border-radius: 0.5rem;
         }
         /* Kontainer untuk menahan gambar QR Code */
-        #qrcode-div-display {
+        #qrcode-render-target { /* Diperbarui ID */
             padding: 1rem;
         }
 
@@ -282,7 +282,7 @@
                                 <div id="print-content">
                                     <p class="text-sm text-gray-500 mb-2 print-hidden">VISUAL (QR CODE DAPAT DI-SCAN):</p>
                                     <div class="qrcode-container">
-                                        <div id="qrcode-div-display"></div> <!-- Tempat QR Code di-render -->
+                                        <div id="qrcode-div-display-placeholder"></div> <!-- NEW PLACEHOLDER -->
                                     </div>
     
                                     <p id="print-sku-title" class="barcode-code text-gray-900 font-bold mt-2 text-lg"></p>
@@ -660,13 +660,12 @@
             const skuInput = document.getElementById('barcode-print-sku');
             const skuCode = skuInput.value.trim().toUpperCase();
             const outputEl = document.getElementById('barcode-output');
-            const qrcodeDivEl = document.getElementById('qrcode-div-display'); // Menggunakan elemen DIV
+            const qrcodeContainerEl = document.querySelector('.qrcode-container'); // Container utama
             const textEl = document.getElementById('barcode-text-display');
             
-            // Ambil elemen baru untuk menampilkan SKU dan Deskripsi di area cetak
             const skuTitleEl = document.getElementById('print-sku-title');
             const skuDescEl = document.getElementById('print-sku-desc');
-            const printButtonEl = document.querySelector('#barcode-output button'); // Ambil tombol cetak
+            const printButtonEl = document.querySelector('#barcode-output button');
 
 
             if (!skuCode) {
@@ -683,44 +682,49 @@
                  return;
             }
             
-            // Generate teks scannable (Teks mentah SKU)
             const scannableCode = generateCode39Simulation(skuCode);
             
-            // Sembunyikan tombol cetak saat proses render dimulai
             if(printButtonEl) printButtonEl.disabled = true;
 
-            // FIX: Hapus konten DIV lama (yang berisi QR Code lama) sebelum menggambar yang baru
-            qrcodeDivEl.innerHTML = '';
+            // FIX KRITIS: Ganti elemen lama dengan elemen baru untuk rendering yang bersih
+            
+            // 1. Hapus placeholder lama
+            let oldPlaceholder = document.getElementById('qrcode-div-display-placeholder');
+            if (oldPlaceholder) {
+                qrcodeContainerEl.removeChild(oldPlaceholder);
+            }
 
-            // 1. RENDER QR CODE MENGGUNAKAN qrcode.js
+            // 2. Buat elemen DIV baru yang benar-benar bersih untuk target qrcode.js
+            const newPlaceholder = document.createElement('div');
+            newPlaceholder.id = 'qrcode-div-display-placeholder'; // Beri ID baru
+            qrcodeContainerEl.appendChild(newPlaceholder);
+
+            // 3. RENDER QR CODE MENGGUNAKAN qrcode.js
             try {
-                // Instansiasi object QRCode baru
-                new QRCode(qrcodeDivEl, {
-                    text: scannableCode, // Teks yang akan di-encode (SKU mentah)
+                new QRCode(newPlaceholder, { // Targetkan elemen baru
+                    text: scannableCode,
                     width: 128,
                     height: 128,
                     colorDark : "#000000",
                     colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.H // Level koreksi tinggi
+                    correctLevel : QRCode.CorrectLevel.H
                 });
             } catch (e) {
                 console.error("QRCode Gagal Render:", e);
-                qrcodeDivEl.innerHTML = '<p class="text-red-500">Gagal Render QR Code.</p>';
+                newPlaceholder.innerHTML = '<p class="text-red-500">Gagal Render QR Code.</p>';
                 showMessage('register-message', 'Gagal membuat QR Code visual. Periksa konsol untuk detail.', 'error');
                 if(printButtonEl) printButtonEl.disabled = false;
                 return;
             }
             
-            // 2. Tampilkan teks yang disalin (ini adalah nilai yang akan discan)
+            // 4. Tampilkan data
             textEl.textContent = scannableCode; 
-            
-            // 3. Tampilkan SKU dan Deskripsi di area cetak
             skuTitleEl.textContent = skuCode; 
             skuDescEl.textContent = skuData.description;
 
             outputEl.classList.remove('hidden');
 
-            // 4. LOGIKA DELAY CETAK
+            // 5. LOGIKA DELAY CETAK
             if(shouldPrint) {
                 // Berikan jeda waktu 1000ms (1 detik) agar QR Code selesai di-render ke DOM sebelum dicetak
                 setTimeout(() => {
@@ -734,7 +738,6 @@
         
         window.printQR = function() {
             // Panggil generateBarcode lagi, tetapi kali ini dengan flag 'shouldPrint' true
-            // Ini akan memastikan QR code di-render ulang (atau dipastikan ada) lalu dicetak setelah delay 1000ms.
             window.generateBarcode(true);
         };
 
