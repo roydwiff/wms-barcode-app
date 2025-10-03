@@ -722,11 +722,11 @@
 
             // 4. LOGIKA DELAY CETAK
             if(shouldPrint) {
-                // Berikan jeda waktu 200ms agar QR Code selesai di-render ke DOM sebelum dicetak
+                // Berikan jeda waktu 1000ms (1 detik) agar QR Code selesai di-render ke DOM sebelum dicetak
                 setTimeout(() => {
                     window.print();
                     if(printButtonEl) printButtonEl.disabled = false;
-                }, 200); 
+                }, 1000); 
             } else {
                 if(printButtonEl) printButtonEl.disabled = false;
             }
@@ -734,7 +734,7 @@
         
         window.printQR = function() {
             // Panggil generateBarcode lagi, tetapi kali ini dengan flag 'shouldPrint' true
-            // Ini akan memastikan QR code di-render ulang (atau dipastikan ada) lalu dicetak setelah delay.
+            // Ini akan memastikan QR code di-render ulang (atau dipastikan ada) lalu dicetak setelah delay 1000ms.
             window.generateBarcode(true);
         };
 
