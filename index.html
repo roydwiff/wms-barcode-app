@@ -717,20 +717,44 @@
                 return;
             }
             
-            // 4. Tampilkan data
+            // --- NEW FIX: Convert Canvas to static Image for Print Reliability ---
+            // 4. Tunggu sebentar agar elemen canvas selesai digambar
+            await delay(50); 
+            
+            // Ambil elemen canvas yang baru digambar
+            const canvas = newPlaceholder.querySelector('canvas');
+            
+            if (canvas) {
+                // Konversi canvas menjadi Data URL (Base64)
+                const dataURL = canvas.toDataURL('image/png');
+                
+                // Buat elemen <img> statis
+                const printImg = document.createElement('img');
+                printImg.src = dataURL;
+                printImg.alt = "QR Code";
+                printImg.style.width = '128px'; 
+                printImg.style.height = '128px';
+
+                // Ganti elemen placeholder dengan gambar statis
+                newPlaceholder.innerHTML = ''; 
+                newPlaceholder.appendChild(printImg);
+            }
+            // --- END NEW FIX ---
+
+            // 5. Tampilkan data
             textEl.textContent = scannableCode; 
             skuTitleEl.textContent = skuCode; 
             skuDescEl.textContent = skuData.description;
 
             outputEl.classList.remove('hidden');
 
-            // 5. LOGIKA DELAY CETAK
+            // 6. LOGIKA DELAY CETAK
             if(shouldPrint) {
-                // Berikan jeda waktu 1000ms (1 detik) agar QR Code selesai di-render ke DOM sebelum dicetak
+                // Berikan jeda waktu 500ms (setengah detik) setelah konversi (lebih aman dari 1000ms)
                 setTimeout(() => {
                     window.print();
                     if(printButtonEl) printButtonEl.disabled = false;
-                }, 1000); 
+                }, 500); 
             } else {
                 if(printButtonEl) printButtonEl.disabled = false;
             }
